@@ -19,7 +19,15 @@ function Invoke-Checked([string]$what, [scriptblock]$run) {
 # Git Bash, not WSL's bash.exe, which `bash` can resolve to on Windows.
 $bash = Join-Path $env:ProgramFiles 'Git\bin\bash.exe'
 if (-not (Test-Path -LiteralPath $bash)) { $bash = 'bash' }
-$python = if (Get-Command python -ErrorAction SilentlyContinue) { 'python' } else { 'python3' }
+# The first Python 3 that runs: "python3" is often the Microsoft Store stub.
+$python = $null
+foreach ($candidate in 'python', 'python3', 'py') {
+    if (-not (Get-Command $candidate -ErrorAction SilentlyContinue)) { continue }
+    & $candidate -c 'import sys; sys.exit(sys.version_info[0] != 3)' 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { $python = $candidate; break }
+}
+$global:LASTEXITCODE = 0
+if (-not $python) { throw 'Python 3 is needed' }
 
 Invoke-Checked 'fetch-obs.sh' { & $bash scripts/fetch-obs.sh obs }
 & "$PSScriptRoot\copy-vc-runtime.ps1" obs

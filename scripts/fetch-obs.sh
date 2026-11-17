@@ -28,7 +28,16 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ $# -eq 1 ] || { echo "usage: $0 <target-dir>" >&2; exit 2; }
 target="$1"
 
-PY="$(command -v python3 || command -v python || true)"
+# The first Python 3 that runs: on Windows "python3" is often the Microsoft
+# Store stub, which only prints an install hint.
+PY=""
+for candidate in python3 python py; do
+    if command -v "$candidate" >/dev/null 2>&1 \
+        && "$candidate" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
+        PY="$(command -v "$candidate")"
+        break
+    fi
+done
 [ -n "$PY" ] || { echo "Python 3 is needed" >&2; exit 1; }
 
 cache="${OBS_CACHE_DIR:-$here/../.obs-cache}"
@@ -64,10 +73,12 @@ for p in "${PLUGINS[@]}"; do
     [ -f "$src_plug/$p.dll" ] || { echo "plugin $p.dll not found in the zip" >&2; exit 1; }
     plugin_files+=("$src_plug/$p.dll")
 done
+# Windows Python ends lines with \r\n, and Git Bash can keep the \r on a
+# name ("missing avcodec-61.dll\r in the zip"): tr drops every \r.
 deps=()
 while IFS= read -r line; do
-    deps+=("${line%$'\r'}")
-done < <(cd "$src_bin" && "$PY" -I "$here/pe-deps.py" . "${roots[@]}" "${plugin_files[@]}")
+    [ -n "$line" ] && deps+=("$line")
+done < <(cd "$src_bin" && "$PY" -I "$here/pe-deps.py" . "${roots[@]}" "${plugin_files[@]}" | tr -d '\r')
 
 rm -rf "$target"
 mkdir -p "$target/obs-plugins/64bit" "$target/data/obs-plugins"

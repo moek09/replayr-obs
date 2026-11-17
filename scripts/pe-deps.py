@@ -81,6 +81,8 @@ def main():
             if real and real not in found:
                 found.add(real)
                 queue.append(os.path.join(search, real))
+    # Plain \n also on Windows, where text mode would write \r\n.
+    sys.stdout.reconfigure(newline="\n")
     for name in sorted(found):
         print(name)
 
