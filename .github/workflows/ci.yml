@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows build, tests and package
+    runs-on: windows-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache the OBS download
+        uses: actions/cache@v4
+        with:
+          path: .obs-cache
+          key: obs-studio-32.1.0-windows-x64
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Package
+        shell: pwsh
+        run: ./scripts/package.ps1 0.0.0-ci
+
+      # Needs a screen, a working GPU driver and ffprobe, which hosted runners
+      # may lack: a failure is a warning with the helper's log, not a red build.
+      - name: OBS smoke test
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffprobe -ErrorAction SilentlyContinue)) { choco install ffmpeg -y --no-progress | Out-Null }
+          python scripts/obs-smoke-test.py obs/replayr-obs.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replayr-obs-windows-x64
+          path: dist
+          retention-days: 3

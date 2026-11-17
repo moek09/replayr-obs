@@ -1,0 +1,77 @@
+name: Release
+
+# Publish a GitHub release with the tag v<version> (the version in
+# Cargo.toml). This builds replayr-obs-<version>-windows-x64.zip and attaches
+# it and its .sha256 to that release. Replayr pins the version and SHA-256 in
+# app/scripts/fetch-replayr-obs.sh.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: windows-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version
+        id: version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n1)"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in Cargo.toml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache the OBS download
+        uses: actions/cache@v4
+        with:
+          path: .obs-cache
+          key: obs-studio-32.1.0-windows-x64
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Package
+        shell: pwsh
+        run: ./scripts/package.ps1 ${{ steps.version.outputs.version }}
+
+      - name: OBS smoke test
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffprobe -ErrorAction SilentlyContinue)) { choco install ffmpeg -y --no-progress | Out-Null }
+          python scripts/obs-smoke-test.py obs/replayr-obs.exe
+
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*.sha256 --clobber
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "## replayr-obs ${{ steps.version.outputs.version }}"
+            echo
+            echo "Put this in Replayr's app/scripts/fetch-replayr-obs.sh:"
+            echo
+            echo '```'
+            echo "VERSION=\"${{ steps.version.outputs.version }}\""
+            echo "SHA256=\"$(cut -d' ' -f1 dist/*.sha256)\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
