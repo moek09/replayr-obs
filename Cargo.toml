@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["crates/obs-host", "crates/obs-protocol"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "GPL-3.0-or-later"
+
+# Smaller debug builds: no debug info for dependencies.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

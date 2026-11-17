@@ -1,0 +1,31 @@
+[package]
+name = "replayr-obs-host"
+description = "replayr-obs: the helper process that records with OBS (libobs) for Replayr"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "replayr-obs"
+path = "src/main.rs"
+
+[dependencies]
+replayr-obs-protocol = { path = "../obs-protocol" }
+
+# libobs only exists for Windows here; on other platforms `main` just says so.
+[target.'cfg(windows)'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# No crash dialogs and no ANSI colours: OBS's log goes to stderr as plain text.
+libobs-wrapper = { version = "=10.0.1", default-features = false, features = ["enable_runtime", "logging_crash_handler"] }
+libobs-simple = { version = "=9.0.0", default-features = false, features = ["enable_runtime"] }
+log = "0.4"
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_UI_HiDpi",
+    "Win32_UI_WindowsAndMessaging",
+] }
