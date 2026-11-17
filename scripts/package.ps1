@@ -64,7 +64,7 @@ New-Item -ItemType Directory -Force dist | Out-Null
 $name = "replayr-obs-$Version-windows-x64.zip"
 $zip = Join-Path $root "dist\$name"
 Remove-Item -LiteralPath $zip -ErrorAction SilentlyContinue
-Invoke-Checked 'zip' { & $python -I -c 'import shutil, sys; shutil.make_archive(sys.argv[1], "zip", sys.argv[2])' ($zip -replace '\.zip$', '') (Join-Path $root 'obs') }
+Invoke-Checked 'zip' { & $python -I -c 'import shutil, sys; shutil.make_archive(sys.argv[1], ''zip'', sys.argv[2])' ($zip -replace '\.zip$', '') (Join-Path $root 'obs') }
 $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
 "$sha  $name" | Set-Content -Encoding ascii "$zip.sha256"
 Write-Host "$name ($([math]::Round((Get-Item $zip).Length / 1MB, 1)) MB)"

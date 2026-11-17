@@ -1,5 +1,8 @@
 //! Messages between the app and the OBS helper process (`replayr-obs.exe`).
 //! One JSON message per line over stdin/stdout.
+//!
+//! Replayr has its own copy of this crate. Change both together, with a new
+//! helper version.
 
 use std::path::PathBuf;
 
